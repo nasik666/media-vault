@@ -1,19 +1,26 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   CheckCircle2,
+  CloudCheck,
   Download,
   ExternalLink,
   Eye,
   EyeOff,
   FileSpreadsheet,
   Loader2,
+  RefreshCw,
   Trash2,
   TriangleAlert,
+  Unlink,
   Upload,
 } from 'lucide-react';
 import { testRawgKey } from '../api/rawg.js';
 import { testTmdbKey } from '../api/tmdb.js';
 import { useStore } from '../store/StoreContext.jsx';
+import { SYNCED_SETTING_KEYS } from '../store/storage.js';
+import { NEW_TOKEN_URL } from '../sync/gist.js';
+import { useSync } from '../sync/SyncProvider.jsx';
+import { timeAgo } from './SyncIndicator.jsx';
 import { downloadRatingsCsv, sortByRating } from '../utils/exportRatings.js';
 import { pluralize, TITLE_FORMS } from '../utils/helpers.js';
 import { Modal } from './ui/Modal.jsx';
@@ -91,21 +98,161 @@ const ExtLink = ({ href, children }) => (
   </a>
 );
 
+const STATUS_TEXT = {
+  idle: 'всё синхронизировано',
+  pending: 'есть изменения, отправляю…',
+  syncing: 'синхронизация…',
+  error: 'ошибка',
+};
+
+function SyncSection() {
+  const sync = useSync();
+  const { settings, actions } = useStore();
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const connect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await sync.connect(token);
+      setToken('');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = () => {
+    if (!window.confirm('Выключить синхронизацию на этом устройстве? Токен будет забыт, данные останутся и здесь, и в gist.')) return;
+    sync.disconnect();
+  };
+
+  return (
+    <section className="space-y-3 rounded-xl bg-sky-500/5 p-4 ring-1 ring-sky-500/20">
+      <h3 className="text-xs font-semibold tracking-wider text-sky-300/80 uppercase">Синхронизация между устройствами</h3>
+
+      {!sync.enabled ? (
+        <>
+          <p className="text-sm text-zinc-300">
+            Библиотека, оценки и тир-листы хранятся в секретном gist в вашем GitHub и совпадают на ПК, Mac и телефоне.
+          </p>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-zinc-400">
+            <li>
+              <ExtLink href={NEW_TOKEN_URL}>Создайте токен на GitHub</ExtLink> — галочка «gist» уже стоит. В Expiration
+              выберите «No expiration» (или срок, после которого токен придётся заменить), нажмите Generate token и
+              скопируйте его.
+            </li>
+            <li>Вставьте токен сюда и нажмите «Подключить». На других устройствах — тот же токен.</li>
+          </ol>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && token.trim() && connect()}
+              placeholder="ghp_…"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Токен GitHub"
+              className={`${inputClass} font-mono text-xs`}
+            />
+            <Button variant="primary" onClick={connect} disabled={!token.trim() || busy}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : 'Подключить'}
+            </Button>
+          </div>
+          {error && (
+            <p className="flex items-center gap-1.5 text-xs text-rose-400">
+              <TriangleAlert size={13} /> {error}
+            </p>
+          )}
+          <p className="text-xs leading-relaxed text-zinc-500">
+            Токен хранится только в этом браузере и даёт доступ лишь к вашим gist. Секретный gist не виден в поиске и
+            профиле, но открывается по прямой ссылке — там будут названия, оценки и заметки.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-300">
+            <CloudCheck size={16} className="text-emerald-400" />
+            Подключено: <b className="text-zinc-100">{sync.login}</b>
+            <span className="text-zinc-500">
+              · {STATUS_TEXT[sync.status] ?? ''} · {timeAgo(sync.lastSyncAt)}
+            </span>
+          </p>
+          {sync.status === 'error' && (
+            <p className="flex items-center gap-1.5 text-xs text-rose-400">
+              <TriangleAlert size={13} /> {sync.error}
+            </p>
+          )}
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={settings.syncSettings}
+              onChange={(e) => actions.updateSettings({ syncSettings: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-sky-500"
+            />
+            <span>
+              Синхронизировать и API-ключи с настройками
+              <span className="block text-xs text-zinc-500">
+                На новом устройстве достаточно токена GitHub — ключ TMDB подтянется сам.
+              </span>
+            </span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button icon={RefreshCw} onClick={sync.syncNow} disabled={sync.status === 'syncing'}>
+              Синхронизировать
+            </Button>
+            {sync.gistId && (
+              <Button onClick={() => window.open(`https://gist.github.com/${sync.gistId}`, '_blank', 'noopener')}>
+                Открыть gist
+              </Button>
+            )}
+            <Button variant="ghost" icon={Unlink} onClick={disconnect}>
+              Отключить здесь
+            </Button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function SettingsModal({ onClose, onExport, onImport }) {
   const { settings, library, tierLists, actions } = useStore();
+  const sync = useSync();
   const toast = useToast();
   const [draft, setDraft] = useState(settings);
   const [includeKeys, setIncludeKeys] = useState(false);
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
+  // Значения, пришедшие с синхронизацией, подхватываем в поля, которые пользователь не трогал.
+  const seen = useRef(settings);
+  useEffect(() => {
+    setDraft((d) => {
+      const next = { ...d };
+      for (const k of SYNCED_SETTING_KEYS) if (d[k] === seen.current[k]) next[k] = settings[k];
+      return next;
+    });
+    seen.current = settings;
+  }, [settings]);
+
   const save = () => {
-    actions.updateSettings({ ...draft, tmdbKey: draft.tmdbKey.trim(), rawgKey: draft.rawgKey.trim() });
+    // Сохраняем только реально изменённые поля — чтобы случайно не затереть ключ, пришедший с другого устройства.
+    const patch = {};
+    for (const k of SYNCED_SETTING_KEYS) {
+      const value = typeof draft[k] === 'string' ? draft[k].trim() : draft[k];
+      if (value !== settings[k]) patch[k] = value;
+    }
+    if (Object.keys(patch).length) actions.updateSettings({ ...patch, settingsUpdatedAt: Date.now() });
     toast.success('Настройки сохранены');
     onClose();
   };
 
   const wipe = () => {
-    const msg = `Удалить всю библиотеку (${pluralize(library.length, TITLE_FORMS)}) и все тир-листы (${tierLists.length})? API-ключи останутся. Отменить нельзя — сначала сделайте экспорт.`;
+    const msg = `Удалить всю библиотеку (${pluralize(library.length, TITLE_FORMS)}) и все тир-листы (${tierLists.length})? API-ключи останутся.${sync.enabled ? ' Удаление разойдётся на все синхронизированные устройства.' : ''} Отменить нельзя — сначала сделайте экспорт.`;
     if (!window.confirm(msg)) return;
     actions.resetAll();
     toast.info('Данные очищены');
@@ -128,11 +275,13 @@ export function SettingsModal({ onClose, onExport, onImport }) {
       }
     >
       <div className="space-y-6">
+        <SyncSection />
+
         <section className="space-y-4">
           <h3 className="text-xs font-semibold tracking-wider text-zinc-500 uppercase">Источники и ключи</h3>
           <p className="text-sm text-zinc-400">
-            Ключи вводятся один раз — браузер их запомнит. Заново понадобятся только на другом устройстве или после
-            очистки данных сайта (перенести можно JSON-бэкапом с ключами).
+            Ключи вводятся один раз — браузер их запомнит. С включённой синхронизацией ключей на других устройствах
+            вводить их не нужно.
           </p>
           <KeyField
             label="TMDB — фильмы и сериалы"

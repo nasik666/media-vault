@@ -1,6 +1,7 @@
 import { Download, LayoutList, LibraryBig, Settings, Upload } from 'lucide-react';
 import { useStore } from '../store/StoreContext.jsx';
 import { SearchBar } from './search/SearchBar.jsx';
+import { SyncIndicator } from './SyncIndicator.jsx';
 import { Button } from './ui/primitives.jsx';
 
 const TABS = [
@@ -14,9 +15,10 @@ export function Header({ tab, onTab, onPickResult, onManualAdd, onOpenSettings, 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-zinc-950/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-2 gap-y-3 px-4 py-3 sm:gap-x-4">
-        <a href="#/library" className="flex items-center gap-2 text-base font-bold tracking-tight text-zinc-50">
+        {/* На телефоне логотип скрыт — освобождает место для значка синхронизации */}
+        <a href="#/library" className="hidden items-center gap-2 text-base font-bold tracking-tight text-zinc-50 sm:flex">
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-7 w-7" />
-          <span className="hidden sm:inline">MediaVault</span>
+          <span>MediaVault</span>
         </a>
 
         <nav className="flex rounded-lg bg-zinc-900 p-1 ring-1 ring-white/5" aria-label="Разделы">
@@ -49,6 +51,7 @@ export function Header({ tab, onTab, onPickResult, onManualAdd, onOpenSettings, 
             <Button variant="ghost" size="icon" icon={Download} onClick={() => onExport()} title="Экспорт в JSON" aria-label="Экспорт в JSON" />
             <Button variant="ghost" size="icon" icon={Upload} onClick={onImport} title="Импорт из JSON" aria-label="Импорт из JSON" />
           </div>
+          <SyncIndicator onOpenSettings={onOpenSettings} />
           <Button variant="ghost" size="icon" icon={Settings} onClick={onOpenSettings} title="Настройки" aria-label="Настройки" />
         </div>
       </div>

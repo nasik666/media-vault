@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { FileJson, KeyRound, TriangleAlert } from 'lucide-react';
 import { useStore } from '../store/StoreContext.jsx';
-import { buildBackup, createTierList, mergeData, parseBackup } from '../store/storage.js';
+import { buildBackup, mergeData, parseBackup, SYNCED_SETTING_KEYS } from '../store/storage.js';
 import { downloadJson, localDateStamp, pluralize, TITLE_FORMS } from '../utils/helpers.js';
 import { Modal } from './ui/Modal.jsx';
 import { Button } from './ui/primitives.jsx';
@@ -42,22 +42,17 @@ export function useBackup() {
 
   const apply = (mode) => {
     const { data, settings } = pending;
-    let next;
-    if (mode === 'replace') {
-      const tierLists = data.tierLists.length ? data.tierLists : [createTierList({ name: 'Мой тир-лист' })];
-      const activeTierListId = tierLists.some((b) => b.id === data.activeTierListId)
-        ? data.activeTierListId
-        : tierLists[0].id;
-      next = { library: data.library, tierLists, activeTierListId };
-    } else {
-      next = mergeData(store, data);
+    const total = mode === 'replace' ? data.library.length : mergeData(store, data).library.length;
+    store.actions.importData(mode, data);
+    if (Object.keys(settings).length) {
+      // Импортированные ключи/язык считаются свежей правкой — уедут на другие устройства при синхронизации.
+      const touchesSynced = SYNCED_SETTING_KEYS.some((k) => k in settings);
+      store.actions.updateSettings(touchesSynced ? { ...settings, settingsUpdatedAt: Date.now() } : settings);
     }
-    store.actions.replaceData(next);
-    if (Object.keys(settings).length) store.actions.updateSettings(settings);
     toast.success(
       mode === 'replace'
-        ? `Импортировано: ${pluralize(next.library.length, TITLE_FORMS)}`
-        : `Объединено: теперь в библиотеке ${pluralize(next.library.length, TITLE_FORMS)}`,
+        ? `Импортировано: ${pluralize(total, TITLE_FORMS)}`
+        : `Объединено: теперь в библиотеке ${pluralize(total, TITLE_FORMS)}`,
     );
     setPending(null);
   };

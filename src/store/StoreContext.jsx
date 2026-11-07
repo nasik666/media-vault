@@ -1,14 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useToast } from '../components/ui/Toast.jsx';
 import { reducer } from './reducer.js';
-import {
-  createInitialData,
-  createTierList,
-  loadData,
-  loadSettings,
-  saveData,
-  saveSettings,
-} from './storage.js';
+import { createDefaultBoard, createTierList, loadData, loadSettings, saveData, saveSettings } from './storage.js';
 
 const StoreContext = createContext(null);
 
@@ -39,24 +32,28 @@ export function StoreProvider({ children }) {
     }
   }, [settings]);
 
+  // Время правки передаём в action, чтобы редьюсер оставался чистой функцией.
   const actions = useMemo(
     () => ({
       addItem: (item) => dispatch({ type: 'item/add', item }),
-      updateItem: (uid, patch) => dispatch({ type: 'item/update', uid, patch }),
-      removeItem: (uid) => dispatch({ type: 'item/remove', uid }),
+      updateItem: (uid, patch) => dispatch({ type: 'item/update', uid, patch, at: Date.now() }),
+      removeItem: (uid) => dispatch({ type: 'item/remove', uid, at: Date.now() }),
 
       createTierList: (opts) => {
         const board = createTierList(opts);
         dispatch({ type: 'tierlist/create', board });
         return board;
       },
-      updateTierList: (id, patch) => dispatch({ type: 'tierlist/update', id, patch }),
+      updateTierList: (id, patch) => dispatch({ type: 'tierlist/update', id, patch, at: Date.now() }),
       deleteTierList: (id) =>
-        dispatch({ type: 'tierlist/delete', id, fallback: createTierList({ name: 'Мой тир-лист' }) }),
+        dispatch({ type: 'tierlist/delete', id, at: Date.now(), fallback: { ...createDefaultBoard(), updated_at: Date.now() } }),
       selectTierList: (id) => dispatch({ type: 'tierlist/select', id }),
 
-      replaceData: (next) => dispatch({ type: 'data/replace', data: next }),
-      resetAll: () => dispatch({ type: 'data/replace', data: createInitialData() }),
+      /** mode: 'merge' | 'replace' */
+      importData: (mode, incoming) => dispatch({ type: 'data/import', mode, incoming, at: Date.now() }),
+      resetAll: () => dispatch({ type: 'data/reset', at: Date.now() }),
+      /** Слить данные из gist с текущим состоянием (вызывается движком синхронизации). */
+      applyRemote: (remote) => dispatch({ type: 'sync/merge', remote, at: Date.now() }),
 
       updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
     }),
@@ -73,7 +70,7 @@ export function StoreProvider({ children }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-/** @returns {{ library: object[], tierLists: object[], activeTierListId: string, libraryByUid: Map<string, object>, settings: object, actions: object }} */
+/** @returns {{ library: object[], tierLists: object[], activeTierListId: string, tombstones: object, libraryByUid: Map<string, object>, settings: object, actions: object }} */
 export function useStore() {
   const ctx = useContext(StoreContext);
   if (!ctx) throw new Error('useStore() должен вызываться внутри <StoreProvider>');

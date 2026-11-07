@@ -12,7 +12,20 @@ export const DEFAULT_SETTINGS = {
   gameSource: 'wikipedia', // 'wikipedia' (без ключа) | 'rawg'
   animeTitle: 'english', // 'english' | 'romaji' | 'native'
   searchCategory: 'all',
+  // Когда менялись синхронизируемые настройки (ключи, язык, источник игр) — для «побеждает свежее».
+  settingsUpdatedAt: 0,
+  // Синхронизация через GitHub Gist (только этот браузер, в бэкапы и gist не попадает).
+  syncToken: '',
+  syncGistId: '',
+  syncLogin: '',
+  syncSettings: true, // синхронизировать ли ключи и настройки вместе с данными
+  lastSyncAt: 0,
 };
+
+/** Настройки, которые уезжают в gist (если включено syncSettings). */
+export const SYNCED_SETTING_KEYS = ['tmdbKey', 'rawgKey', 'gameSource', 'tmdbLanguage', 'animeTitle'];
+/** Настройки, которые никогда не попадают ни в бэкап, ни в gist. */
+const LOCAL_ONLY_KEYS = ['syncToken', 'syncGistId', 'syncLogin', 'lastSyncAt', 'syncSettings', 'settingsUpdatedAt'];
 
 /* ------------------------------------------------------------------ */
 /* Фабрики                                                             */
@@ -56,9 +69,28 @@ export function createTierList({ name = 'Новый тир-лист', mediaType 
   };
 }
 
+/**
+ * Тир-лист по умолчанию полностью детерминирован (фиксированные id, нулевые даты):
+ * на двух новых устройствах он одинаковый, и синхронизация не плодит дубликаты «Мой тир-лист».
+ */
+export function createDefaultBoard() {
+  return {
+    id: 'default',
+    name: 'Мой тир-лист',
+    filter: { mediaType: 'all', status: 'any' },
+    showTitles: false,
+    tiers: DEFAULT_TIERS.map((t) => ({ id: `default-${t.label.toLowerCase()}`, label: t.label, color: t.color, items: [] })),
+    unranked: [],
+    created_at: 0,
+    updated_at: 0,
+  };
+}
+
+export const emptyTombstones = () => ({ items: {}, boards: {} });
+
 export function createInitialData() {
-  const board = createTierList({ name: 'Мой тир-лист' });
-  return { library: [], tierLists: [board], activeTierListId: board.id };
+  const board = createDefaultBoard();
+  return { library: [], tierLists: [board], activeTierListId: board.id, tombstones: emptyTombstones() };
 }
 
 /* ------------------------------------------------------------------ */
@@ -181,16 +213,32 @@ export function normalizeData(raw, { ensureBoard = true } = {}) {
     if (clean) boards.set(clean.id, clean);
   }
   let tierLists = [...boards.values()];
-  if (ensureBoard && tierLists.length === 0) tierLists = [createTierList({ name: 'Мой тир-лист' })];
+  if (ensureBoard && tierLists.length === 0) tierLists = [createDefaultBoard()];
 
   const activeTierListId = tierLists.some((b) => b.id === raw?.activeTierListId)
     ? raw.activeTierListId
     : (tierLists[0]?.id ?? null);
 
-  return { library: [...byUid.values()], tierLists, activeTierListId };
+  return { library: [...byUid.values()], tierLists, activeTierListId, tombstones: sanitizeTombstones(raw?.tombstones) };
 }
 
-export function sanitizeSettings(raw) {
+/** Отметки удаления для синхронизации: { items: { uid: время }, boards: { id: время } }. */
+export function sanitizeTombstones(raw) {
+  const clean = (obj) => {
+    const out = {};
+    if (obj && typeof obj === 'object') {
+      for (const [key, ts] of Object.entries(obj)) if (key && Number.isFinite(ts)) out[key] = ts;
+    }
+    return out;
+  };
+  return { items: clean(raw?.items), boards: clean(raw?.boards) };
+}
+
+/**
+ * includeLocal — принимать ли поля, живущие только в этом браузере (токен GitHub и т.п.).
+ * Для импорта из файла и данных из gist — false.
+ */
+export function sanitizeSettings(raw, { includeLocal = false } = {}) {
   if (!raw || typeof raw !== 'object') return {};
   const out = {};
   if (isStr(raw.tmdbKey)) out.tmdbKey = raw.tmdbKey.trim();
@@ -199,6 +247,14 @@ export function sanitizeSettings(raw) {
   if (['english', 'romaji', 'native'].includes(raw.animeTitle)) out.animeTitle = raw.animeTitle;
   if (raw.gameSource === 'wikipedia' || raw.gameSource === 'rawg') out.gameSource = raw.gameSource;
   if (['all', ...Object.keys(MEDIA_TYPES)].includes(raw.searchCategory)) out.searchCategory = raw.searchCategory;
+  if (includeLocal) {
+    if (isStr(raw.syncToken)) out.syncToken = raw.syncToken.trim();
+    if (isStr(raw.syncGistId) && /^[0-9a-f]*$/i.test(raw.syncGistId)) out.syncGistId = raw.syncGistId;
+    if (isStr(raw.syncLogin)) out.syncLogin = raw.syncLogin;
+    if (typeof raw.syncSettings === 'boolean') out.syncSettings = raw.syncSettings;
+    if (Number.isFinite(raw.lastSyncAt)) out.lastSyncAt = raw.lastSyncAt;
+    if (Number.isFinite(raw.settingsUpdatedAt)) out.settingsUpdatedAt = raw.settingsUpdatedAt;
+  }
   return out;
 }
 
@@ -226,7 +282,7 @@ export function saveData(data) {
 }
 
 export function loadSettings() {
-  return { ...DEFAULT_SETTINGS, ...sanitizeSettings(readJson(SETTINGS_KEY)) };
+  return { ...DEFAULT_SETTINGS, ...sanitizeSettings(readJson(SETTINGS_KEY), { includeLocal: true }) };
 }
 
 export function saveSettings(settings) {
@@ -238,7 +294,9 @@ export function saveSettings(settings) {
 /* ------------------------------------------------------------------ */
 
 export function buildBackup(data, settings, { includeKeys = false } = {}) {
-  const { tmdbKey, rawgKey, ...publicSettings } = settings;
+  const { tmdbKey, rawgKey, ...rest } = settings;
+  // Токен GitHub и прочие локальные поля не попадают в файл никогда.
+  const publicSettings = Object.fromEntries(Object.entries(rest).filter(([key]) => !LOCAL_ONLY_KEYS.includes(key)));
   return {
     app: 'MediaVault',
     version: BACKUP_VERSION,
@@ -262,7 +320,7 @@ export function parseBackup(text) {
     throw new Error('это не бэкап MediaVault — нет массива "library"');
   }
   const data = normalizeData(raw, { ensureBoard: false });
-  const settings = sanitizeSettings(raw.settings);
+  const settings = sanitizeSettings(raw.settings); // без токена GitHub и прочих локальных полей
   // Пустые ключи из файла не должны затирать уже сохранённые.
   if (!settings.tmdbKey) delete settings.tmdbKey;
   if (!settings.rawgKey) delete settings.rawgKey;
@@ -274,8 +332,28 @@ export function parseBackup(text) {
   };
 }
 
-/** Объединение: тайтлы по uid (побеждает более свежий updated_at), тир-листы по id. */
-export function mergeData(current, incoming) {
+/**
+ * Импортированные записи — осознанное восстановление: если тайтл или тир-лист
+ * когда-то удаляли, снимаем отметку удаления и делаем запись «свежее» её,
+ * иначе синхронизация сразу удалит восстановленное снова.
+ */
+function revive(library, tierLists, tombstones, now) {
+  const tomb = { items: { ...tombstones.items }, boards: { ...tombstones.boards } };
+  const lib = library.map((i) => {
+    if (tomb.items[i.uid] == null) return i;
+    delete tomb.items[i.uid];
+    return { ...i, updated_at: Math.max(i.updated_at, now) };
+  });
+  const boards = tierLists.map((b) => {
+    if (tomb.boards[b.id] == null) return b;
+    delete tomb.boards[b.id];
+    return { ...b, updated_at: Math.max(b.updated_at, now) };
+  });
+  return { library: lib, tierLists: boards, tombstones: tomb };
+}
+
+/** Импорт «Объединить»: тайтлы по uid (побеждает более свежий updated_at), тир-листы по id. */
+export function mergeData(current, incoming, now = Date.now()) {
   const library = new Map(current.library.map((i) => [i.uid, i]));
   for (const item of incoming.library) {
     const existing = library.get(item.uid);
@@ -284,8 +362,28 @@ export function mergeData(current, incoming) {
   const boards = new Map(current.tierLists.map((b) => [b.id, b]));
   for (const b of incoming.tierLists) boards.set(b.id, b);
   return {
-    library: [...library.values()],
-    tierLists: [...boards.values()],
+    ...revive([...library.values()], [...boards.values()], current.tombstones ?? emptyTombstones(), now),
     activeTierListId: current.activeTierListId,
   };
+}
+
+/**
+ * Импорт «Заменить всё» и очистка: всё, что было и исчезло, помечается удалённым —
+ * иначе синхронизация вернёт это с других устройств.
+ */
+export function replaceData(current, incoming, now = Date.now()) {
+  const tomb = {
+    items: { ...(current.tombstones?.items ?? {}) },
+    boards: { ...(current.tombstones?.boards ?? {}) },
+  };
+  const keepItems = new Set(incoming.library.map((i) => i.uid));
+  for (const i of current.library) if (!keepItems.has(i.uid)) tomb.items[i.uid] = now;
+  const keepBoards = new Set(incoming.tierLists.map((b) => b.id));
+  for (const b of current.tierLists) if (!keepBoards.has(b.id)) tomb.boards[b.id] = now;
+
+  const tierLists = incoming.tierLists.length ? incoming.tierLists : [createDefaultBoard()];
+  const activeTierListId = tierLists.some((b) => b.id === incoming.activeTierListId)
+    ? incoming.activeTierListId
+    : tierLists[0].id;
+  return { ...revive(incoming.library, tierLists, tomb, now), activeTierListId };
 }
