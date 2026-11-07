@@ -1,0 +1,42 @@
+# Автодеплой: каждый push в main собирает сайт и публикует dist/ в ветку gh-pages.
+# GitHub Pages уже настроен на ветку gh-pages, поэтому в настройках репозитория ничего менять не нужно.
+# Запустить вручную: вкладка Actions → Deploy to GitHub Pages → Run workflow.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # чтобы пушить в ветку gh-pages
+
+concurrency:
+  group: deploy-gh-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish dist to gh-pages
+        run: >
+          npx gh-pages -d dist
+          -u "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          -r "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          -m "Deploy ${GITHUB_SHA::7}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

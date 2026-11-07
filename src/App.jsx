@@ -91,7 +91,12 @@ export default function App() {
         </a>
         . This product uses the TMDB API but is not endorsed or certified by TMDB.
         <br />
-        Все данные хранятся только в этом браузере (localStorage).
+        Данные хранятся в этом браузере, а при включённой синхронизации — ещё и в вашем секретном gist.
+        <br />
+        <span className="text-zinc-700">
+          Сборка {new Date(__BUILD_TIME__).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })} ·{' '}
+          {__BUILD_SHA__}
+        </span>
       </footer>
 
       {editor && editorItem && (

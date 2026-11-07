@@ -101,56 +101,19 @@ gh repo create media-vault --public --source=. --push
 ```
 Без `gh` CLI: создайте пустой репозиторий на github.com и выполните `git remote add origin https://github.com/<user>/media-vault.git && git push -u origin main`.
 
-### 8. Деплой через gh-pages
+### 8. Деплой
+
+**Автоматически (уже настроено).** Каждый `git push` в `main` запускает [.github/workflows/deploy.yml](.github/workflows/deploy.yml): GitHub сам ставит зависимости, собирает сайт и публикует `dist/` в ветку `gh-pages`. Через 1–2 минуты обновлённый сайт появляется на `https://<user>.github.io/media-vault/`. Node.js на своём компьютере для этого не нужен. Ход сборки виден на вкладке **Actions** репозитория, а в подвале сайта показаны время сборки и коммит.
+
+Перезапустить деплой без нового коммита: **Actions → Deploy to GitHub Pages → Run workflow**.
+
+**Вручную (если нужно):**
 ```bash
 npm run deploy
 ```
-Команда соберёт `dist/` и запушит его в ветку `gh-pages`. Затем на GitHub откройте **Settings → Pages → Build and deployment → Source: Deploy from a branch**, выберите ветку `gh-pages` и папку `/ (root)`.
-Через минуту сайт появится на `https://<user>.github.io/media-vault/`. Для обновления повторите `npm run deploy`.
+Команда соберёт `dist/` локально и запушит его в ветку `gh-pages`.
 
-<details>
-<summary>Альтернатива: автодеплой через GitHub Actions</summary>
-
-Создайте `.github/workflows/deploy.yml`, а в **Settings → Pages → Source** выберите **GitHub Actions**. `npm ci` требует закоммиченный `package-lock.json`.
-
-```yaml
-name: Deploy to GitHub Pages
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: true
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-```
-</details>
+Первая настройка Pages для нового репозитория: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, ветка `gh-pages`, папка `/ (root)`. Обычно GitHub включает это сам после первого пуша ветки `gh-pages`.
 
 ---
 
