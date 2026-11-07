@@ -21,7 +21,7 @@ function normalize(g) {
     year: g.released ? Number(g.released.slice(0, 4)) || null : null,
     poster_path: resize(g.background_image, 420),
     thumb: resize(g.background_image, 200),
-    meta: { platforms },
+    meta: { platforms, source: 'rawg', url: g.slug ? `https://rawg.io/games/${g.slug}` : null },
   };
 }
 

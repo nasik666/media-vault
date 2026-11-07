@@ -52,7 +52,12 @@ export async function searchAnilist(query, { titleLang = 'english', limit = 10, 
       year: m.seasonYear ?? m.startDate?.year ?? null,
       poster_path: m.coverImage?.large ?? null,
       thumb: m.coverImage?.medium ?? m.coverImage?.large ?? null,
-      meta: { format: m.format ?? null, episodes: m.episodes ?? null },
+      meta: {
+        format: m.format ?? null,
+        episodes: m.episodes ?? null,
+        source: 'anilist',
+        url: `https://anilist.co/anime/${m.id}`,
+      },
     };
   });
 }

@@ -44,6 +44,10 @@ export default function App() {
   );
 
   const openItem = useCallback((item) => setEditor({ mode: 'edit', uid: item.uid }), []);
+  const openManual = useCallback(
+    (prefill = {}) => setEditor({ mode: 'manual', item: { title: '', media_type: 'movie', ...prefill } }),
+    [],
+  );
   const closeEditor = useCallback(() => setEditor(null), []);
 
   const editorItem = editor?.mode === 'edit' ? libraryByUid.get(editor.uid) : editor?.item;
@@ -54,6 +58,7 @@ export default function App() {
         tab={tab}
         onTab={setTab}
         onPickResult={openSearchResult}
+        onManualAdd={openManual}
         onOpenSettings={openSettings}
         onExport={backup.exportBackup}
         onImport={backup.startImport}
@@ -61,7 +66,7 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
         {tab === 'library' ? (
-          <Library onOpenItem={openItem} onOpenSettings={openSettings} />
+          <Library onOpenItem={openItem} onOpenSettings={openSettings} onManualAdd={openManual} />
         ) : (
           <TierListPage onOpenItem={openItem} />
         )}
@@ -73,19 +78,25 @@ export default function App() {
           TMDB
         </a>
         ,{' '}
-        <a className="hover:text-zinc-400" href="https://rawg.io/" target="_blank" rel="noreferrer">
-          RAWG
+        <a className="hover:text-zinc-400" href="https://www.wikipedia.org/" target="_blank" rel="noreferrer">
+          Википедия
         </a>
         ,{' '}
         <a className="hover:text-zinc-400" href="https://anilist.co/" target="_blank" rel="noreferrer">
           AniList
+        </a>
+        ,{' '}
+        <a className="hover:text-zinc-400" href="https://rawg.io/" target="_blank" rel="noreferrer">
+          RAWG
         </a>
         . This product uses the TMDB API but is not endorsed or certified by TMDB.
         <br />
         Все данные хранятся только в этом браузере (localStorage).
       </footer>
 
-      {editor && editorItem && <ItemEditor key={editor.uid ?? editor.item.id} mode={editor.mode} item={editorItem} onClose={closeEditor} />}
+      {editor && editorItem && (
+        <ItemEditor key={editor.uid ?? editor.item.id ?? 'manual'} mode={editor.mode} item={editorItem} onClose={closeEditor} />
+      )}
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onExport={backup.exportBackup} onImport={backup.startImport} />
       )}

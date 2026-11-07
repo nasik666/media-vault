@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardCopy, FileDown, FileSpreadsheet, KeyRound, LibraryBig, Search, X } from 'lucide-react';
+import { ClipboardCopy, FileDown, FileSpreadsheet, KeyRound, LibraryBig, Plus, Search, X } from 'lucide-react';
 import { MEDIA_TYPES, MEDIA_TYPE_KEYS, SORT_OPTIONS, STATUSES, statusDot, statusLabel } from '../../constants.js';
 import { usePersistentState } from '../../hooks/usePersistentState.js';
 import { useStore } from '../../store/StoreContext.jsx';
@@ -100,7 +100,7 @@ function Chip({ active, onClick, children }) {
 
 const Count = ({ n }) => <span className="text-xs text-zinc-500 tabular-nums">{n}</span>;
 
-export function Library({ onOpenItem, onOpenSettings }) {
+export function Library({ onOpenItem, onOpenSettings, onManualAdd }) {
   const { library, settings, actions } = useStore();
   const [type, setType] = usePersistentState('lib:type', 'all');
   const [status, setStatus] = usePersistentState('lib:status', 'all');
@@ -141,17 +141,19 @@ export function Library({ onOpenItem, onOpenSettings }) {
       .sort(SORTERS[sort] ?? SORTERS.added_desc);
   }, [byType, status, q, sort]);
 
-  const missingKeys = !settings.tmdbKey || !settings.rawgKey;
+  const needTmdb = !settings.tmdbKey;
+  const needRawg = settings.gameSource === 'rawg' && !settings.rawgKey;
 
   return (
     <div className="space-y-5">
-      {missingKeys && !hideKeyHint && (
+      {(needTmdb || needRawg) && !hideKeyHint && (
         <div className="flex flex-col gap-3 rounded-xl bg-violet-500/10 p-4 ring-1 ring-violet-500/25 sm:flex-row sm:items-center">
           <KeyRound size={20} className="shrink-0 text-violet-300" />
           <p className="flex-1 text-sm text-zinc-300">
-            Для поиска {!settings.tmdbKey && 'фильмов и сериалов (TMDB)'}
-            {!settings.tmdbKey && !settings.rawgKey && ' и '}
-            {!settings.rawgKey && 'игр (RAWG)'} нужен бесплатный API-ключ. Аниме ищется без ключа.
+            Для поиска {needTmdb && 'фильмов и сериалов (TMDB)'}
+            {needTmdb && needRawg && ' и '}
+            {needRawg && 'игр (RAWG)'} нужен бесплатный API-ключ — его вводят один раз.{' '}
+            {settings.gameSource === 'rawg' ? 'Аниме ищется без ключа.' : 'Игры и аниме ищутся без ключа.'}
           </p>
           <div className="flex gap-2">
             <Button variant="primary" size="sm" onClick={onOpenSettings}>
@@ -189,6 +191,9 @@ export function Library({ onOpenItem, onOpenSettings }) {
             />
           </div>
           <Select value={sort} onChange={setSort} options={SORT_OPTIONS} className="w-36 sm:w-44" aria-label="Сортировка" />
+          <Button icon={Plus} onClick={() => onManualAdd()} title="Добавить тайтл вручную">
+            <span className="hidden sm:inline">Вручную</span>
+          </Button>
           <ExportMenu items={items} />
         </div>
       </div>
@@ -213,6 +218,9 @@ export function Library({ onOpenItem, onOpenSettings }) {
             Найдите фильм, сериал, игру или аниме через поиск вверху (клавиша <kbd className="text-zinc-300">/</kbd>) и
             добавьте его. Всё хранится локально в этом браузере — не забывайте делать экспорт в JSON.
           </p>
+          <Button icon={Plus} onClick={() => onManualAdd()} className="mt-5">
+            Добавить вручную
+          </Button>
         </div>
       ) : items.length === 0 ? (
         <div className="py-16 text-center text-sm text-zinc-500">Под выбранные фильтры ничего не подходит.</div>

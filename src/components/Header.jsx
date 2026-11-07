@@ -8,7 +8,7 @@ const TABS = [
   { id: 'tiers', label: 'Тир-листы', icon: LayoutList },
 ];
 
-export function Header({ tab, onTab, onPickResult, onOpenSettings, onExport, onImport }) {
+export function Header({ tab, onTab, onPickResult, onManualAdd, onOpenSettings, onExport, onImport }) {
   const { library } = useStore();
 
   return (
@@ -40,7 +40,7 @@ export function Header({ tab, onTab, onPickResult, onOpenSettings, onExport, onI
         </nav>
 
         <div className="order-last w-full md:order-none md:w-auto md:min-w-0 md:flex-1">
-          <SearchBar onPick={onPickResult} onOpenSettings={onOpenSettings} />
+          <SearchBar onPick={onPickResult} onManualAdd={onManualAdd} onOpenSettings={onOpenSettings} />
         </div>
 
         <div className="ml-auto flex items-center gap-1 md:ml-0">

@@ -26,7 +26,7 @@ const EMPTY = { loading: false, results: [], errors: [] };
 /** Дебаунс 400 мс + отмена устаревших запросов через AbortController. */
 export function useMediaSearch(query, category) {
   const { settings } = useStore();
-  const { tmdbKey, rawgKey, tmdbLanguage, animeTitle } = settings;
+  const { tmdbKey, rawgKey, tmdbLanguage, animeTitle, gameSource } = settings;
   const debounced = useDebounce(query.trim(), 400);
   const [state, setState] = useState(EMPTY);
 
@@ -35,7 +35,7 @@ export function useMediaSearch(query, category) {
       setState(EMPTY);
       return undefined;
     }
-    const key = [category, debounced.toLowerCase(), tmdbLanguage, animeTitle, Boolean(tmdbKey), Boolean(rawgKey)].join('|');
+    const key = [category, debounced.toLowerCase(), tmdbLanguage, animeTitle, gameSource, Boolean(tmdbKey), Boolean(rawgKey)].join('|');
     const cached = cache.get(key);
     if (cached) {
       setState({ loading: false, ...cached });
@@ -44,7 +44,7 @@ export function useMediaSearch(query, category) {
 
     const controller = new AbortController();
     setState((s) => ({ ...s, loading: true }));
-    searchMedia(debounced, category, { tmdbKey, rawgKey, tmdbLanguage, animeTitle }, controller.signal)
+    searchMedia(debounced, category, { tmdbKey, rawgKey, tmdbLanguage, animeTitle, gameSource }, controller.signal)
       .then((res) => {
         // Ошибки не кэшируем — пользователь мог как раз поправить ключ.
         if (res.errors.length === 0) cacheSet(key, res);
@@ -54,7 +54,7 @@ export function useMediaSearch(query, category) {
         if (!isAbortError(e)) setState({ loading: false, results: [], errors: [{ type: 'all', message: e.message }] });
       });
     return () => controller.abort();
-  }, [debounced, category, tmdbKey, rawgKey, tmdbLanguage, animeTitle]);
+  }, [debounced, category, tmdbKey, rawgKey, tmdbLanguage, animeTitle, gameSource]);
 
   return { ...state, pending: query.trim() !== debounced };
 }

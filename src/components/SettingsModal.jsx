@@ -129,7 +129,11 @@ export function SettingsModal({ onClose, onExport, onImport }) {
     >
       <div className="space-y-6">
         <section className="space-y-4">
-          <h3 className="text-xs font-semibold tracking-wider text-zinc-500 uppercase">API-ключи</h3>
+          <h3 className="text-xs font-semibold tracking-wider text-zinc-500 uppercase">Источники и ключи</h3>
+          <p className="text-sm text-zinc-400">
+            Ключи вводятся один раз — браузер их запомнит. Заново понадобятся только на другом устройстве или после
+            очистки данных сайта (перенести можно JSON-бэкапом с ключами).
+          </p>
           <KeyField
             label="TMDB — фильмы и сериалы"
             value={draft.tmdbKey}
@@ -143,27 +147,45 @@ export function SettingsModal({ onClose, onExport, onImport }) {
               </>
             }
           />
-          <KeyField
-            label="RAWG — игры"
-            value={draft.rawgKey}
-            onChange={(rawgKey) => set({ rawgKey })}
-            onTest={testRawgKey}
-            placeholder="API Key"
+          <Field
+            label="Игры"
             hint={
-              <>
-                Бесплатно: <ExtLink href="https://rawg.io/apidocs">rawg.io/apidocs</ExtLink> → Get API Key.
-              </>
+              draft.gameSource === 'rawg'
+                ? 'RAWG даёт платформы и хорошие обложки, но иногда бывает недоступен.'
+                : 'Ищет по русской и английской Википедии: обложка, год, название на двух языках. Ключ не нужен.'
             }
-          />
+          >
+            <Select
+              value={draft.gameSource}
+              onChange={(gameSource) => set({ gameSource })}
+              options={[
+                { value: 'wikipedia', label: 'Википедия — без ключа' },
+                { value: 'rawg', label: 'RAWG — нужен ключ' },
+              ]}
+            />
+          </Field>
+          {draft.gameSource === 'rawg' && (
+            <KeyField
+              label="Ключ RAWG"
+              value={draft.rawgKey}
+              onChange={(rawgKey) => set({ rawgKey })}
+              onTest={testRawgKey}
+              placeholder="API Key"
+              hint={
+                <>
+                  Бесплатно: <ExtLink href="https://rawg.io/apidocs">rawg.io/apidocs</ExtLink> → Get API Key.
+                </>
+              }
+            />
+          )}
           <p className="rounded-lg bg-zinc-950/60 p-3 text-xs leading-relaxed text-zinc-500 ring-1 ring-white/5">
-            Ключи хранятся только в localStorage этого браузера и уходят напрямую в TMDB/RAWG. Аниме ищется через
-            AniList — ключ не нужен. На GitHub Pages сайт публичный, но ключи видны лишь тому, кто открыл его в вашем
-            браузере.
+            Ключи хранятся только в localStorage этого браузера и уходят напрямую в TMDB/RAWG. Аниме (AniList) и игры
+            из Википедии ищутся без ключа. Сайт на GitHub Pages публичный, но ключи видны только в вашем браузере.
           </p>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
-          <Field label="Язык TMDB">
+          <Field label="Язык названий (TMDB, Википедия)">
             <Select
               value={draft.tmdbLanguage}
               onChange={(tmdbLanguage) => set({ tmdbLanguage })}

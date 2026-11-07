@@ -27,7 +27,7 @@ function normalize(r, type) {
     year: date ? Number(date.slice(0, 4)) || null : null,
     poster_path: r.poster_path ? `${IMG}/w342${r.poster_path}` : null,
     thumb: r.poster_path ? `${IMG}/w92${r.poster_path}` : null,
-    meta: {},
+    meta: { source: 'tmdb', url: `https://www.themoviedb.org/${type}/${r.id}` },
   };
 }
 

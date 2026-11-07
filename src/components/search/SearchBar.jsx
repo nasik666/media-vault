@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, KeyRound, Loader2, Plus, Search, TriangleAlert, X } from 'lucide-react';
+import { Check, KeyRound, Loader2, PenLine, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { MEDIA_TYPES, SEARCH_CATEGORIES } from '../../constants.js';
 import { useMediaSearch } from '../../hooks/useMediaSearch.js';
 import { useStore } from '../../store/StoreContext.jsx';
@@ -13,7 +13,7 @@ import { useToast } from '../ui/Toast.jsx';
  * Клик по строке → модалка добавления (статус/оценка/заметка); «+» → быстрое добавление в «В планах».
  * Клавиатура: «/» — фокус, ↑/↓ — выбор, Enter — открыть, Esc — закрыть.
  */
-export function SearchBar({ onPick, onOpenSettings }) {
+export function SearchBar({ onPick, onManualAdd, onOpenSettings }) {
   const { settings, libraryByUid, actions } = useStore();
   const toast = useToast();
   const [query, setQuery] = useState('');
@@ -251,6 +251,22 @@ export function SearchBar({ onPick, onOpenSettings }) {
           {busy && results.length === 0 && (
             <div className="px-3 py-6 text-center text-sm text-zinc-500">Ищем…</div>
           )}
+
+          <div className="mt-1 border-t border-white/5 px-1 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onManualAdd({ title: query.trim(), media_type: category === 'all' ? 'movie' : category });
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+            >
+              <PenLine size={15} className="shrink-0" />
+              <span className="truncate">
+                Нет нужного? Добавить «{query.trim()}» вручную
+              </span>
+            </button>
+          </div>
         </div>
       )}
     </div>

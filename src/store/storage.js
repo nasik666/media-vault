@@ -8,7 +8,8 @@ export const BACKUP_VERSION = 1;
 export const DEFAULT_SETTINGS = {
   tmdbKey: '',
   rawgKey: '',
-  tmdbLanguage: 'ru-RU', // 'ru-RU' | 'en-US'
+  tmdbLanguage: 'ru-RU', // 'ru-RU' | 'en-US' — язык названий в TMDB и Википедии
+  gameSource: 'wikipedia', // 'wikipedia' (без ключа) | 'rawg'
   animeTitle: 'english', // 'english' | 'romaji' | 'native'
   searchCategory: 'all',
 };
@@ -95,6 +96,9 @@ function sanitizeMeta(meta) {
   if (Array.isArray(meta.platforms)) out.platforms = meta.platforms.filter(isStr).slice(0, 12);
   if (isStr(meta.format)) out.format = meta.format;
   if (Number.isFinite(meta.episodes)) out.episodes = meta.episodes;
+  if (['tmdb', 'rawg', 'anilist', 'wikipedia', 'manual'].includes(meta.source)) out.source = meta.source;
+  const url = safeUrl(meta.url);
+  if (url) out.url = url;
   return out;
 }
 
@@ -193,6 +197,7 @@ export function sanitizeSettings(raw) {
   if (isStr(raw.rawgKey)) out.rawgKey = raw.rawgKey.trim();
   if (raw.tmdbLanguage === 'ru-RU' || raw.tmdbLanguage === 'en-US') out.tmdbLanguage = raw.tmdbLanguage;
   if (['english', 'romaji', 'native'].includes(raw.animeTitle)) out.animeTitle = raw.animeTitle;
+  if (raw.gameSource === 'wikipedia' || raw.gameSource === 'rawg') out.gameSource = raw.gameSource;
   if (['all', ...Object.keys(MEDIA_TYPES)].includes(raw.searchCategory)) out.searchCategory = raw.searchCategory;
   return out;
 }

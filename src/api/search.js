@@ -2,11 +2,16 @@ import { isAbortError } from './http.js';
 import { searchAnilist } from './anilist.js';
 import { searchRawg } from './rawg.js';
 import { searchTmdb } from './tmdb.js';
+import { searchWikipediaGames } from './wikipedia.js';
 
 const SOURCES = {
   movie: (q, s, opts) => searchTmdb(q, 'movie', { apiKey: s.tmdbKey, language: s.tmdbLanguage, ...opts }),
   tv: (q, s, opts) => searchTmdb(q, 'tv', { apiKey: s.tmdbKey, language: s.tmdbLanguage, ...opts }),
-  game: (q, s, opts) => searchRawg(q, { apiKey: s.rawgKey, ...opts }),
+  // Игры: по умолчанию Википедия (без ключа), RAWG — по выбору в настройках.
+  game: (q, s, opts) =>
+    s.gameSource === 'rawg'
+      ? searchRawg(q, { apiKey: s.rawgKey, ...opts })
+      : searchWikipediaGames(q, { language: s.tmdbLanguage, ...opts }),
   anime: (q, s, opts) => searchAnilist(q, { titleLang: s.animeTitle, ...opts }),
 };
 
