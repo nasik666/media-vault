@@ -3,7 +3,7 @@ export const POOL_ID = '__pool__';
 export function matchesFilter(item, filter) {
   return (
     (filter.mediaType === 'all' || item.media_type === filter.mediaType) &&
-    (filter.status === 'any' || item.status === filter.status)
+    (filter.statuses ?? []).includes(item.status)
   );
 }
 

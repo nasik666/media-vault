@@ -22,7 +22,8 @@ const SOURCES = {
  */
 export async function searchMedia(query, category, settings, signal) {
   const types = category === 'all' ? Object.keys(SOURCES) : [category];
-  const limit = category === 'all' ? 5 : 12;
+  // «Все» — до 8 из каждого источника (до 32 вариантов), одна категория — до 20.
+  const limit = category === 'all' ? 8 : 20;
 
   const settled = await Promise.allSettled(types.map((t) => SOURCES[t](query, settings, { limit, signal })));
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');

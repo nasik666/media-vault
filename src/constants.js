@@ -39,8 +39,8 @@ export const STATUSES = ['Planned', 'Watching/Playing', 'Completed', 'Dropped'];
 
 const STATUS_META = {
   Planned: { label: 'В планах', generic: 'В планах', dot: 'bg-zinc-400' },
-  'Watching/Playing': { label: 'Смотрю', game: 'Играю', generic: 'В процессе', dot: 'bg-sky-400' },
-  Completed: { label: 'Просмотрено', game: 'Пройдено', generic: 'Завершено', dot: 'bg-emerald-400' },
+  'Watching/Playing': { label: 'Смотрю', game: 'Играю', generic: 'Смотрю / играю', dot: 'bg-sky-400' },
+  Completed: { label: 'Просмотрено', game: 'Пройдено', generic: 'Просмотрено / пройдено', dot: 'bg-emerald-400' },
   Dropped: { label: 'Брошено', generic: 'Брошено', dot: 'bg-rose-400' },
 };
 
@@ -52,6 +52,9 @@ export function statusLabel(status, mediaType) {
   if (mediaType === 'game' && meta.game) return meta.game;
   return meta.label;
 }
+
+/** Тир-листы по умолчанию ранжируют то, что вы уже смотрите/прошли, — без «В планах» и «Брошено». */
+export const DEFAULT_BOARD_STATUSES = ['Watching/Playing', 'Completed'];
 
 export function statusDot(status) {
   return STATUS_META[status]?.dot ?? 'bg-zinc-500';

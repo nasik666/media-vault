@@ -16,13 +16,14 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Captions, ImageDown, Inbox, Loader2, Plus, RotateCcw, Search } from 'lucide-react';
-import { MEDIA_TYPES, TIER_COLOR_PRESETS, statusLabel } from '../../constants.js';
+import { MEDIA_TYPES, STATUSES, TIER_COLOR_PRESETS, statusLabel } from '../../constants.js';
 import { useStore } from '../../store/StoreContext.jsx';
 import { createDefaultTiers } from '../../store/storage.js';
 import { POOL_ID, nextTierLabel, resolveBoard } from '../../store/tierUtils.js';
 import { downloadBlob, makeId, pluralize, slugify, TITLE_FORMS } from '../../utils/helpers.js';
 import { Button } from '../ui/primitives.jsx';
 import { useToast } from '../ui/Toast.jsx';
+import { StatusToggles } from './StatusToggles.jsx';
 import { TierCard } from './TierCard.jsx';
 import { TierEditor } from './TierEditor.jsx';
 import { PoolArea, TierRow } from './TierRow.jsx';
@@ -282,10 +283,11 @@ export function TierBoard({ board, onOpenItem }) {
     : containers[POOL_ID];
 
   const placedCount = resolved.tiers.reduce((n, t) => n + t.items.length, 0);
+  const typeForLabels = board.filter.mediaType === 'all' ? undefined : board.filter.mediaType;
   const filterParts = [
     board.filter.mediaType === 'all' ? 'Все типы' : MEDIA_TYPES[board.filter.mediaType].plural,
-    board.filter.status !== 'any' &&
-      statusLabel(board.filter.status, board.filter.mediaType === 'all' ? undefined : board.filter.mediaType),
+    board.filter.statuses.length < STATUSES.length &&
+      board.filter.statuses.map((s) => statusLabel(s, typeForLabels).toLowerCase()).join(', '),
   ].filter(Boolean);
 
   const editingTier = board.tiers.find((t) => t.id === editingTierId);
@@ -322,6 +324,15 @@ export function TierBoard({ board, onOpenItem }) {
         >
           Скачать PNG
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-xs text-zinc-500">Статусы в тир-листе:</span>
+        <StatusToggles
+          value={board.filter.statuses}
+          mediaType={board.filter.mediaType}
+          onChange={(statuses) => patchBoard({ filter: { ...board.filter, statuses } })}
+        />
       </div>
 
       <DndContext

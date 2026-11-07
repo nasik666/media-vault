@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Plus, Settings2, Trash2 } from 'lucide-react';
-import { MEDIA_TYPES, MEDIA_TYPE_KEYS, STATUSES, statusLabel } from '../../constants.js';
+import { DEFAULT_BOARD_STATUSES, MEDIA_TYPES, MEDIA_TYPE_KEYS } from '../../constants.js';
 import { useStore } from '../../store/StoreContext.jsx';
 import { Modal } from '../ui/Modal.jsx';
 import { Button, Field, Select, inputClass } from '../ui/primitives.jsx';
 import { useToast } from '../ui/Toast.jsx';
+import { StatusToggles } from './StatusToggles.jsx';
 import { TierBoard } from './TierBoard.jsx';
 
 const TYPE_OPTIONS = [
@@ -15,17 +16,12 @@ const TYPE_OPTIONS = [
 function BoardSettingsModal({ board, onClose, onSubmit }) {
   const [name, setName] = useState(board?.name ?? '');
   const [mediaType, setMediaType] = useState(board?.filter.mediaType ?? 'all');
-  const [status, setStatus] = useState(board?.filter.status ?? 'any');
-
-  const statusOptions = [
-    { value: 'any', label: 'Любой статус' },
-    ...STATUSES.map((s) => ({ value: s, label: statusLabel(s, mediaType === 'all' ? undefined : mediaType) })),
-  ];
+  const [statuses, setStatuses] = useState(board?.filter.statuses ?? DEFAULT_BOARD_STATUSES);
 
   const submit = () =>
     onSubmit({
       name: name.trim() || (board ? board.name : 'Новый тир-лист'),
-      filter: { mediaType, status },
+      filter: { mediaType, statuses },
     });
 
   return (
@@ -56,11 +52,14 @@ function BoardSettingsModal({ board, onClose, onSubmit }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Какие тайтлы попадают в пул" hint="Тир-лист берёт тайтлы из библиотеки по этому фильтру.">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Select value={mediaType} onChange={setMediaType} options={TYPE_OPTIONS} aria-label="Тип медиа" />
-            <Select value={status} onChange={setStatus} options={statusOptions} aria-label="Статус" />
-          </div>
+        <Field label="Тип тайтлов">
+          <Select value={mediaType} onChange={setMediaType} options={TYPE_OPTIONS} aria-label="Тип медиа" />
+        </Field>
+        <Field
+          label="Статусы"
+          hint="Тир-лист берёт из библиотеки только тайтлы с отмеченными статусами. Обычно «В планах» и «Брошено» исключают."
+        >
+          <StatusToggles value={statuses} onChange={setStatuses} mediaType={mediaType} />
         </Field>
       </div>
     </Modal>

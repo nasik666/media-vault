@@ -1,4 +1,4 @@
-import { DEFAULT_TIERS, MEDIA_TYPES, STATUSES } from '../constants.js';
+import { DEFAULT_BOARD_STATUSES, DEFAULT_TIERS, MEDIA_TYPES, STATUSES } from '../constants.js';
 import { makeId } from '../utils/helpers.js';
 
 const DATA_KEY = 'mediavault:data:v1';
@@ -55,12 +55,17 @@ export function createDefaultTiers() {
   return DEFAULT_TIERS.map((t) => ({ id: makeId(), label: t.label, color: t.color, items: [] }));
 }
 
-export function createTierList({ name = 'Новый тир-лист', mediaType = 'all', status = 'any', showTitles = false } = {}) {
+export function createTierList({
+  name = 'Новый тир-лист',
+  mediaType = 'all',
+  statuses = DEFAULT_BOARD_STATUSES,
+  showTitles = false,
+} = {}) {
   const now = Date.now();
   return {
     id: makeId(),
     name,
-    filter: { mediaType, status },
+    filter: { mediaType, statuses: [...statuses] },
     showTitles,
     tiers: createDefaultTiers(),
     unranked: [],
@@ -77,7 +82,7 @@ export function createDefaultBoard() {
   return {
     id: 'default',
     name: 'Мой тир-лист',
-    filter: { mediaType: 'all', status: 'any' },
+    filter: { mediaType: 'all', statuses: [...DEFAULT_BOARD_STATUSES] },
     showTitles: false,
     tiers: DEFAULT_TIERS.map((t) => ({ id: `default-${t.label.toLowerCase()}`, label: t.label, color: t.color, items: [] })),
     unranked: [],
@@ -181,21 +186,35 @@ export function sanitizeTierList(raw) {
     });
 
   const mediaType = raw.filter?.mediaType;
-  const status = raw.filter?.status;
   const now = Date.now();
+  const createdAt = toTimestamp(raw.created_at, now);
+  const updatedAt = toTimestamp(raw.updated_at, now);
+
+  // Статусы: новый формат — массив filter.statuses; старый — одиночный filter.status ('any' = все).
+  let statuses;
+  if (Array.isArray(raw.filter?.statuses)) {
+    statuses = STATUSES.filter((s) => raw.filter.statuses.includes(s));
+  } else if (STATUSES.includes(raw.filter?.status)) {
+    statuses = [raw.filter.status];
+  } else {
+    statuses = [...STATUSES];
+  }
+  // Нетронутый тир-лист по умолчанию получает новый набор статусов по умолчанию.
+  if (raw.id === 'default' && updatedAt === 0) statuses = [...DEFAULT_BOARD_STATUSES];
+  if (statuses.length === 0) statuses = [...STATUSES];
 
   return {
     id: isStr(raw.id) && raw.id ? raw.id : makeId(),
     name: isStr(raw.name) && raw.name.trim() ? raw.name.trim().slice(0, 80) : 'Тир-лист',
     filter: {
       mediaType: mediaType === 'all' || MEDIA_TYPES[mediaType] ? mediaType : 'all',
-      status: status === 'any' || STATUSES.includes(status) ? status : 'any',
+      statuses,
     },
     showTitles: Boolean(raw.showTitles),
     tiers: tiers.length ? tiers : createDefaultTiers(),
     unranked: strArray(raw.unranked),
-    created_at: toTimestamp(raw.created_at, now),
-    updated_at: toTimestamp(raw.updated_at, now),
+    created_at: createdAt,
+    updated_at: updatedAt,
   };
 }
 

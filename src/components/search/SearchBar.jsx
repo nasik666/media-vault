@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Check, KeyRound, Loader2, PenLine, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { MEDIA_TYPES, SEARCH_CATEGORIES } from '../../constants.js';
 import { useMediaSearch } from '../../hooks/useMediaSearch.js';
@@ -94,7 +94,7 @@ export function SearchBar({ onPick, onManualAdd, onOpenSettings }) {
   const busy = loading || pending;
 
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div ref={rootRef} className="relative w-full md:static">
       <div className="flex h-10 items-center rounded-xl bg-zinc-900 ring-1 ring-white/10 focus-within:ring-violet-500/60">
         <label className="sr-only" htmlFor="search-category">
           Категория поиска
@@ -156,8 +156,16 @@ export function SearchBar({ onPick, onManualAdd, onOpenSettings }) {
       {showDropdown && (
         <div
           id="search-results"
-          className="scroll-thin absolute top-full right-0 left-0 z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl bg-zinc-900 py-1 shadow-2xl ring-1 ring-white/10 md:left-auto md:w-[34rem] md:max-w-[calc(100vw-2rem)] md:min-w-full"
+          className="scroll-thin absolute top-full right-0 left-0 z-40 mt-2 max-h-[75vh] overflow-y-auto rounded-xl bg-zinc-900 pb-1 shadow-2xl ring-1 ring-white/10 md:right-auto md:left-1/2 md:max-h-[min(82vh,56rem)] md:w-[min(60rem,calc(100vw-2rem))] md:-translate-x-1/2"
         >
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/5 bg-zinc-900/95 px-3 py-2 text-xs text-zinc-500 backdrop-blur">
+            <span>
+              {results.length > 0 ? `Найдено: ${results.length}` : busy ? 'Ищем…' : 'Нет результатов'}
+              {busy && results.length > 0 && ' · обновляю…'}
+            </span>
+            <span className="hidden sm:inline">↑↓ — выбор · Enter — открыть · Esc — закрыть</span>
+          </div>
+
           {errors.map((err) => (
             <div key={err.message} className="flex items-start gap-2 px-3 py-2 text-xs text-amber-200/90">
               {err.code === 'NO_KEY' ? (
@@ -182,42 +190,46 @@ export function SearchBar({ onPick, onManualAdd, onOpenSettings }) {
           ))}
           {errors.length > 0 && results.length > 0 && <div className="my-1 border-t border-white/5" />}
 
-          <ul ref={listRef} role="listbox" aria-label="Результаты поиска">
+          <ul ref={listRef} role="listbox" aria-label="Результаты поиска" className="grid gap-0.5 p-1 md:grid-cols-2">
             {results.map((r, i) => {
               const uid = `${r.media_type}:${r.id}`;
               const inLibrary = libraryByUid.has(uid);
               const groupStart = category === 'all' && (i === 0 || results[i - 1].media_type !== r.media_type);
-              const sub = [r.original_title && r.original_title !== r.title ? r.original_title : null, r.year, metaLine(r)]
-                .filter(Boolean)
-                .join(' · ');
+              const original = r.original_title && r.original_title !== r.title ? r.original_title : null;
+              const sub = [r.year, metaLine(r)].filter(Boolean).join(' · ');
               return (
-                <li key={uid} role="presentation">
+                <Fragment key={uid}>
                   {groupStart && (
-                    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                    <li
+                      role="presentation"
+                      className="px-2 pt-3 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase md:col-span-2"
+                    >
                       {MEDIA_TYPES[r.media_type].plural}
-                    </div>
+                    </li>
                   )}
-                  <div
+                  <li
                     role="option"
                     aria-selected={i === active}
                     data-index={i}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => pick(r)}
-                    className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${i === active ? 'bg-white/5' : ''}`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 ${i === active ? 'bg-white/[0.07]' : ''}`}
                   >
                     <Poster
                       src={r.thumb ?? r.poster_path}
                       title={r.title}
                       mediaType={r.media_type}
-                      className="h-14 w-10 shrink-0 rounded-md"
-                      iconSize={14}
+                      className="h-20 w-14 shrink-0 rounded-md"
+                      iconSize={16}
                       showTitle={false}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-zinc-100">{r.title}</div>
+                      <div className="line-clamp-2 text-sm leading-snug font-medium text-zinc-100">{r.title}</div>
+                      {original && <div className="truncate text-xs text-zinc-400">{original}</div>}
                       {sub && <div className="truncate text-xs text-zinc-500">{sub}</div>}
+                      {inLibrary && <div className="mt-0.5 text-[11px] text-emerald-400">в библиотеке</div>}
                     </div>
-                    {category !== 'all' ? null : <TypeBadge type={r.media_type} compact className="hidden sm:inline-flex" />}
+                    {category === 'all' && <TypeBadge type={r.media_type} compact className="hidden shrink-0 sm:inline-flex" />}
                     {inLibrary ? (
                       <span
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-emerald-400"
@@ -239,17 +251,17 @@ export function SearchBar({ onPick, onManualAdd, onOpenSettings }) {
                         <Plus size={18} />
                       </button>
                     )}
-                  </div>
-                </li>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>
 
           {!busy && results.length === 0 && errors.length === 0 && (
-            <div className="px-3 py-6 text-center text-sm text-zinc-500">Ничего не найдено</div>
+            <div className="px-3 py-8 text-center text-sm text-zinc-500">Ничего не найдено</div>
           )}
           {busy && results.length === 0 && (
-            <div className="px-3 py-6 text-center text-sm text-zinc-500">Ищем…</div>
+            <div className="px-3 py-8 text-center text-sm text-zinc-500">Ищем…</div>
           )}
 
           <div className="mt-1 border-t border-white/5 px-1 pt-1">
