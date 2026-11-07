@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+npm-debug.log*
+
+# Никогда не коммитьте файлы с ключами
+*.key
+.env
+.env.*
+api*.txt
+
+# Локальная конфигурация Claude Code (путь к временному Node)
+.claude/
